@@ -3,7 +3,7 @@
 
 ModAssistant is a PC mod installer for Beat Saber. It uses mods from [BeatMods](https://beatmods.com/).
 
-Unfortunately, Assistant added some anti-piracy checks to this mod manager and [hasn't justified why](https://github.com/Assistant/ModAssistant/issues/124). I beleive that a mod manager shouldn't force people to buy the game its modding. So here's a patched version!
+Unfortunately, there's some anti-piracy code in the original mod manager. This fork removes that while maintaining the auto-updating functionality!
 
 * [Features](#Features)
 * [Usage](#Usage)
@@ -25,7 +25,7 @@ ModAssistant boasts a rich feature set, some of which include:
 * OneClick&trade; Install support
 * Complex theming engine
 * Localization support
-* Respects people's rights to make their own decisions
+* Allows people that [otherwise couldn't or are morally against DRM](https://gist.github.com/yiays/d0f779bd69cad043297fdfa1d7cbf3c6) play modded beat saber.
 
 ## Usage
 Download the newest installer from the release section and run it. This application auto-updates when launched, there is no need to download a new release each time.

@@ -158,36 +158,6 @@
     <!-- Loading Page -->
     <sys:String x:Key="Loading:Loading">正在加载Mod...</sys:String>
 
-    <!-- Invalid Page -->
-    <sys:String x:Key="Invalid:Title">无效</sys:String>
-    <sys:String x:Key="Invalid:PageTitle">检测到无效的安装</sys:String>
-    <sys:String x:Key="Invalid:PageSubtitle">您的游戏安装已损坏或无效</sys:String>
-    <sys:String x:Key="Invalid:List:Header">如果您的游戏是盗版的，或者您使用盗版游戏替换了正版，则可能会发生这种情况。</sys:String>
-    <Span x:Key="Invalid:List:Line1">
-        如果您的游戏是盗版的，
-        <Bold>请在
-            <Hyperlink NavigateUri="https://beatgames.com/" local:HyperlinkExtensions.IsExternal="True">
-                这里
-            </Hyperlink>
-        </Bold>购买游戏。
-    </Span>
-    <Span x:Key="Invalid:List:Line2">
-        如果您的游戏
-        <Bold>不是盗版</Bold>，请
-        <Hyperlink NavigateUri="https://bsmg.wiki/support#clean-installation" local:HyperlinkExtensions.IsExternal="True">
-            清洁安装
-        </Hyperlink>。
-    </Span>
-    <Span x:Key="Invalid:List:Line3">
-        如果这些方法没有帮助，请在BSMG的
-        <Hyperlink NavigateUri="https://discord.gg/beatsabermods" local:HyperlinkExtensions.IsExternal="True">
-            Discord
-        </Hyperlink><Span Foreground="Blue">#support</Span>频道寻求帮助。
-    </Span>
-    <sys:String x:Key="Invalid:BoughtGame1">如果您曾经使用盗版，但之后购买了正版游戏</sys:String>
-    <sys:String x:Key="Invalid:SelectFolderButton">选择路径</sys:String>
-    <sys:String x:Key="Invalid:BoughtGame2">更改为正版游戏之后，您需要重新启动Mod Assistant</sys:String>
-
     <!-- OneClick Class -->
     <sys:String x:Key="OneClick:MapDownloadFailed">无法获取地图详情。</sys:String>
     <sys:String x:Key="OneClick:SongDownloadFailed">无法下载歌曲。</sys:String>

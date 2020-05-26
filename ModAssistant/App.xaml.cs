@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
@@ -19,12 +20,21 @@ namespace ModAssistant
         public static bool SaveModSelection;
         public static bool CheckInstalledMods;
         public static bool SelectInstalledMods;
+        public static bool ReinstallInstalledMods;
+        public static bool CloseWindowOnFinish;
         public static string Version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
         public static List<string> SavedMods = ModAssistant.Properties.Settings.Default.SavedMods.Split(',').ToList();
+        public static MainWindow window;
+        public static string Arguments;
+        public static bool Update = true;
+        public static bool GUI = true;
 
 
         private async void Application_Startup(object sender, StartupEventArgs e)
         {
+            // Set SecurityProtocol to prevent crash with TLS
+            System.Net.ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+
             // Load localisation languages
             LoadLanguage(CultureInfo.CurrentCulture.Name);
 
@@ -60,69 +70,138 @@ namespace ModAssistant
             SaveModSelection = ModAssistant.Properties.Settings.Default.SaveSelected;
             CheckInstalledMods = ModAssistant.Properties.Settings.Default.CheckInstalled;
             SelectInstalledMods = ModAssistant.Properties.Settings.Default.SelectInstalled;
+            ReinstallInstalledMods = ModAssistant.Properties.Settings.Default.ReinstallInstalled;
+            CloseWindowOnFinish = ModAssistant.Properties.Settings.Default.CloseWindowOnFinish;
 
-            if (e.Args.Length == 0)
+            await ArgumentHandler(e.Args);
+            await Init();
+        }
+
+        private async Task Init()
+        {
+            if (Update)
             {
-                await Task.Run(async () => await Updater.Run());
+                try
+                {
+                    await Task.Run(async () => await Updater.Run());
+                }
+                catch (UnauthorizedAccessException e)
+                {
+                    Utils.StartAsAdmin(Arguments, true);
+                }
+            }
 
-                MainWindow window = new MainWindow();
+            if (GUI)
+            {
+                window = new MainWindow();
                 window.Show();
             }
             else
             {
-                await ArgumentHandler(e.Args);
+                //Application.Current.Shutdown();
             }
         }
 
         private async Task ArgumentHandler(string[] args)
         {
-            switch (args[0])
+            Arguments = string.Join(" ", args);
+            while (args.Length > 0)
             {
-                case "--install":
-                    if (args.Length < 2 || string.IsNullOrEmpty(args[1]))
-                    {
-                        Utils.SendNotify(string.Format((string)Current.FindResource("App:InvalidArgument"), "--install"));
-                    }
-                    else
-                    {
-                        await OneClickInstaller.InstallAsset(args[1]);
-                    }
-                    break;
+                switch (args[0])
+                {
+                    case "--install":
+                        if (args.Length < 2 || string.IsNullOrEmpty(args[1]))
+                        {
+                            Utils.SendNotify(string.Format((string)Current.FindResource("App:InvalidArgument"), "--install"));
+                        }
+                        else
+                        {
+                            await OneClickInstaller.InstallAsset(args[1]);
+                        }
 
-                case "--no-update":
-                    MainWindow window = new MainWindow();
-                    window.Show();
-                    break;
+                        if (CloseWindowOnFinish)
+                        {
+                            await Task.Delay(5 * 1000);
+                            Current.Shutdown();
+                        }
 
-                case "--register":
-                    if (args.Length < 2 || string.IsNullOrEmpty(args[1]))
-                    {
-                        Utils.SendNotify(string.Format((string)Current.FindResource("App:InvalidArgument"), "--register"));
-                    }
-                    else
-                    {
-                        OneClickInstaller.Register(args[1], true);
-                    }
+                        Update = false;
+                        GUI = false;
+                        args = Shift(args, 2);
+                        break;
 
-                    break;
+                    case "--no-update":
+                        Update = false;
+                        args = Shift(args);
+                        break;
 
-                case "--unregister":
-                    if (args.Length < 2 || string.IsNullOrEmpty(args[1]))
-                    {
-                        Utils.SendNotify(string.Format((string)Current.FindResource("App:InvalidArgument"), "--unregister"));
-                    }
-                    else
-                    {
-                        OneClickInstaller.Unregister(args[1], true);
-                    }
-                    break;
+                    case "--language":
+                        if (args.Length < 2 || string.IsNullOrEmpty(args[1]))
+                        {
+                            Utils.SendNotify(string.Format((string)Current.FindResource("App:InvalidArgument"), "--language"));
+                        }
+                        else
+                        {
+                            LoadLanguage(args[1]);
+                        }
 
-                default:
-                    Utils.SendNotify((string)Current.FindResource("App:UnrecognizedArgument"));
-                    break;
+                        args = Shift(args, 2);
+                        break;
+
+                    case "--register":
+                        if (args.Length < 2 || string.IsNullOrEmpty(args[1]))
+                        {
+                            Utils.SendNotify(string.Format((string)Current.FindResource("App:InvalidArgument"), "--register"));
+                        }
+                        else
+                        {
+                            OneClickInstaller.Register(args[1], true);
+                        }
+
+                        Update = false;
+                        GUI = false;
+                        args = Shift(args, 2);
+                        break;
+
+                    case "--unregister":
+                        if (args.Length < 2 || string.IsNullOrEmpty(args[1]))
+                        {
+                            Utils.SendNotify(string.Format((string)Current.FindResource("App:InvalidArgument"), "--unregister"));
+                        }
+                        else
+                        {
+                            OneClickInstaller.Unregister(args[1], true);
+                        }
+
+                        Update = false;
+                        GUI = false;
+                        args = Shift(args, 2);
+                        break;
+
+                    case "--runforever":
+                        while (true)
+                        {
+
+                        }
+
+                    default:
+                        Utils.SendNotify((string)Current.FindResource("App:UnrecognizedArgument"));
+                        args = Shift(args);
+                        break;
+                }
+            }
+        }
+
+        private static string[] Shift(string[] array, int places = 1)
+        {
+            if (places >= array.Length) return Array.Empty<string>();
+            string[] newArray = new string[array.Length - places];
+            for(int i = places; i < array.Length; i++)
+            {
+                newArray[i - places] = array[i];
             }
 
-            Current.Shutdown();
+            return newArray;
         }
 
         private void Application_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)

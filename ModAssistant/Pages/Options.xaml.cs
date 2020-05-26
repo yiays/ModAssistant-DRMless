@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
@@ -21,8 +23,11 @@ namespace ModAssistant.Pages
         public bool SaveSelection { get; set; }
         public bool CheckInstalledMods { get; set; }
         public bool SelectInstalledMods { get; set; }
+        public bool ReinstallInstalledMods { get; set; }
         public bool ModelSaberProtocolHandlerEnabled { get; set; }
         public bool BeatSaverProtocolHandlerEnabled { get; set; }
+        public bool PlaylistsProtocolHandlerEnabled { get; set; }
+        public bool CloseWindowOnFinish { get; set; }
         public string LogURL { get; private set; }
 
         public Options()
@@ -33,8 +38,14 @@ namespace ModAssistant.Pages
             SaveSelection = App.SaveModSelection;
             CheckInstalledMods = App.CheckInstalledMods;
             SelectInstalledMods = App.SelectInstalledMods;
+            ReinstallInstalledMods = App.ReinstallInstalledMods;
+            CloseWindowOnFinish = App.CloseWindowOnFinish;
             if (!CheckInstalledMods)
+            {
                 SelectInstalled.IsEnabled = false;
+                ReinstallInstalled.IsEnabled = false;
+            }
+                
 
             UpdateHandlerStatus();
 
@@ -45,6 +56,7 @@ namespace ModAssistant.Pages
         {
             ModelSaberProtocolHandlerEnabled = OneClickInstaller.IsRegistered("modelsaber");
             BeatSaverProtocolHandlerEnabled = OneClickInstaller.IsRegistered("beatsaver");
+            PlaylistsProtocolHandlerEnabled = OneClickInstaller.IsRegistered("bsplaylist");
         }
 
         private void SelectDirButton_Click(object sender, RoutedEventArgs e)
@@ -85,6 +97,7 @@ namespace ModAssistant.Pages
             CheckInstalledMods = true;
             Properties.Settings.Default.Save();
             SelectInstalled.IsEnabled = true;
+            ReinstallInstalled.IsEnabled = true;
 
             if (MainWindow.ModsOpened)
             {
@@ -99,11 +112,28 @@ namespace ModAssistant.Pages
             CheckInstalledMods = false;
             Properties.Settings.Default.Save();
             SelectInstalled.IsEnabled = false;
+            ReinstallInstalled.IsEnabled = false;
 
             if (MainWindow.ModsOpened)
             {
                 Mods.Instance.PendingChanges = true;
             }
+        }
+
+        private void CloseWindowOnFinish_Checked(object sender, RoutedEventArgs e)
+        {
+            Properties.Settings.Default.CloseWindowOnFinish = true;
+            App.CloseWindowOnFinish = true;
+            CloseWindowOnFinish = true;
+            Properties.Settings.Default.Save();
+        }
+
+        private void CloseWindowOnFinish_Unchecked(object sender, RoutedEventArgs e)
+        {
+            Properties.Settings.Default.CloseWindowOnFinish = false;
+            App.CloseWindowOnFinish = false;
+            CloseWindowOnFinish = false;
+            Properties.Settings.Default.Save();
         }
 
         public void ModelSaberProtocolHandler_Checked(object sender, RoutedEventArgs e)
@@ -125,6 +155,15 @@ namespace ModAssistant.Pages
         {
             OneClickInstaller.Unregister("beatsaver");
         }
+        public void PlaylistsProtocolHandler_Checked(object sender, RoutedEventArgs e)
+        {
+            OneClickInstaller.Register("bsplaylist");
+        }
+
+        public void PlaylistsProtocolHandler_Unchecked(object sender, RoutedEventArgs e)
+        {
+            OneClickInstaller.Unregister("bsplaylist");
+        }
 
         private void SelectInstalled_Checked(object sender, RoutedEventArgs e)
         {
@@ -139,6 +178,22 @@ namespace ModAssistant.Pages
             Properties.Settings.Default.SelectInstalled = false;
             App.SelectInstalledMods = false;
             SelectInstalledMods = false;
+            Properties.Settings.Default.Save();
+        }
+
+        private void ReinstallInstalled_Checked(object sender, RoutedEventArgs e)
+        {
+            Properties.Settings.Default.ReinstallInstalled = true;
+            App.ReinstallInstalledMods = true;
+            ReinstallInstalledMods = true;
+            Properties.Settings.Default.Save();
+        }
+
+        private void ReinstallInstalled_Unchecked(object sender, RoutedEventArgs e)
+        {
+            Properties.Settings.Default.ReinstallInstalled = false;
+            App.ReinstallInstalledMods = false;
+            ReinstallInstalledMods = false;
             Properties.Settings.Default.Save();
         }
 
@@ -168,24 +223,33 @@ namespace ModAssistant.Pages
         {
             const string DateFormat = "yyyy-mm-dd HH:mm:ss";
             DateTime now = DateTime.Now;
+            string logPath = Path.GetDirectoryName(ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.PerUserRoamingAndLocal).FilePath);
+            string Log = Path.Combine(logPath, "log.log");
+            string GameLog = File.ReadAllText(Path.Combine(InstallDirectory, "Logs", "_latest.log"));
+            string Separator = File.Exists(Log) ? $"\n\n=============================================\n============= Mod Assistant Log =============\n=============================================\n\n" : string.Empty;
+            string ModAssistantLog = File.Exists(Log) ? File.ReadAllText(Log) : string.Empty;
 
             var nvc = new List<KeyValuePair<string, string>>()
             {
                 new KeyValuePair<string, string>("title", $"_latest.log ({now.ToString(DateFormat)})"),
                 new KeyValuePair<string, string>("expireUnit", "hour"),
                 new KeyValuePair<string, string>("expireLength", "5"),
-                new KeyValuePair<string, string>("code", File.ReadAllText(Path.Combine(InstallDirectory, "Logs", "_latest.log"))),
+                new KeyValuePair<string, string>("code", $"{GameLog}{Separator}{ModAssistantLog}"),
             };
 
-            var req = new HttpRequestMessage(HttpMethod.Post, Utils.Constants.TeknikAPIUrl + "Paste")
+            string[] items = new string[nvc.Count];
+
+            for (int i = 0; i < nvc.Count; i++)
             {
-                Content = new FormUrlEncodedContent(nvc),
-            };
+                KeyValuePair<string, string> item = nvc[i];
+                items[i] = WebUtility.UrlEncode(item.Key) + "=" + WebUtility.UrlEncode(item.Value);
+            }
 
-            var resp = await Http.HttpClient.SendAsync(req);
-            var body = await resp.Content.ReadAsStringAsync();
+            StringContent content = new StringContent(String.Join("&", items), null, "application/x-www-form-urlencoded");
+            HttpResponseMessage resp = await Http.HttpClient.PostAsync(Utils.Constants.TeknikAPIUrl + "Paste", content);
+            string body = await resp.Content.ReadAsStringAsync();
 
-            var TeknikResponse = Http.JsonSerializer.Deserialize<Utils.TeknikPasteResponse>(body);
+            Utils.TeknikPasteResponse TeknikResponse = Http.JsonSerializer.Deserialize<Utils.TeknikPasteResponse>(body);
             LogURL = TeknikResponse.result.url;
         }
 
@@ -194,7 +258,14 @@ namespace ModAssistant.Pages
             string location = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "AppData", "LocalLow", "Hyperbolic Magnetism");
-            Utils.OpenFolder(location);
+            if (Directory.Exists(location))
+            {
+                Utils.OpenFolder(location);
+            }
+            else
+            {
+                MessageBox.Show((string)Application.Current.FindResource("Options:AppDataNotFound"));
+            }
         }
 
         private async void YeetBSIPAButton_Click(object sender, RoutedEventArgs e)
@@ -275,6 +346,15 @@ namespace ModAssistant.Pages
             else
             {
                 MessageBox.Show((string)Application.Current.FindResource("Options:ThemeFolderNotFound"));
+            }
+        }
+
+        private void InstallPlaylistButton_Click(object sender, RoutedEventArgs e)
+        {
+            string playlistFile = Utils.GetManualFile();
+            if (File.Exists(playlistFile))
+            {
+                Task.Run(() => { API.Playlists.DownloadFrom(playlistFile).Wait(); });
             }
         }
     }

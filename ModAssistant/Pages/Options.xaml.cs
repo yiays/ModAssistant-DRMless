@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -29,26 +30,24 @@ namespace ModAssistant.Pages
         public bool PlaylistsProtocolHandlerEnabled { get; set; }
         public bool CloseWindowOnFinish { get; set; }
         public string LogURL { get; private set; }
+        public string OCIWindow { get; set; }
 
         public Options()
         {
             InitializeComponent();
-            InstallDirectory = App.BeatSaberInstallDirectory;
-            InstallType = App.BeatSaberInstallType;
-            SaveSelection = App.SaveModSelection;
-            CheckInstalledMods = App.CheckInstalledMods;
-            SelectInstalledMods = App.SelectInstalledMods;
-            ReinstallInstalledMods = App.ReinstallInstalledMods;
-            CloseWindowOnFinish = App.CloseWindowOnFinish;
+
+            OCIWindow = App.OCIWindow;
+            if (!string.IsNullOrEmpty(OCIWindow))
+            {
+                UpdateOCIWindow(OCIWindow);
+            }
             if (!CheckInstalledMods)
             {
                 SelectInstalled.IsEnabled = false;
                 ReinstallInstalled.IsEnabled = false;
             }
-                
 
             UpdateHandlerStatus();
-
             this.DataContext = this;
         }
 
@@ -204,8 +203,8 @@ namespace ModAssistant.Pages
                 MainWindow.Instance.MainText = $"{Application.Current.FindResource("Options:UploadingLog")}...";
                 await Task.Run(async () => await UploadLog());
 
-                System.Diagnostics.Process.Start(LogURL);
-                Clipboard.SetText(LogURL);
+                Process.Start(LogURL);
+                Utils.SetClipboard(LogURL);
                 MainWindow.Instance.MainText = (string)Application.Current.FindResource("Options:LogUrlCopied");
             }
             catch (Exception exception)
@@ -245,7 +244,7 @@ namespace ModAssistant.Pages
                 items[i] = WebUtility.UrlEncode(item.Key) + "=" + WebUtility.UrlEncode(item.Value);
             }
 
-            StringContent content = new StringContent(String.Join("&", items), null, "application/x-www-form-urlencoded");
+            StringContent content = new StringContent(string.Join("&", items), null, "application/x-www-form-urlencoded");
             HttpResponseMessage resp = await Http.HttpClient.PostAsync(Utils.Constants.TeknikAPIUrl + "Paste", content);
             string body = await resp.Content.ReadAsStringAsync();
 
@@ -331,6 +330,36 @@ namespace ModAssistant.Pages
             }
         }
 
+        public void LanguageSelectComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if ((sender as ComboBox).SelectedItem == null)
+            {
+                // Apply default language
+                Console.WriteLine("Applying default language");
+                Languages.LoadLanguage("en");
+            }
+            else
+            {
+                // Get the matching language from the LoadedLanguages array, then try and use it
+                var languageName = (sender as ComboBox).SelectedItem.ToString();
+                var selectedLanguage = Languages.LoadedLanguages.Find(language => language.NativeName.CompareTo(languageName) == 0);
+                if (Languages.LoadLanguage(selectedLanguage.Name))
+                {
+                    Properties.Settings.Default.LanguageCode = selectedLanguage.Name;
+                    Properties.Settings.Default.Save();
+                    if (Languages.FirstRun)
+                    {
+                        Languages.FirstRun = false;
+                    }
+                    else
+                    {
+                        Process.Start(Utils.ExePath, App.Arguments);
+                        Application.Current.Dispatcher.Invoke(() => { Application.Current.Shutdown(); });
+                    }
+                }
+            }
+        }
+
         private void ApplicationThemeExportTemplate_Click(object sender, RoutedEventArgs e)
         {
             Themes.WriteThemeToDisk("Ugly Kulu-Ya-Ku");
@@ -355,6 +384,33 @@ namespace ModAssistant.Pages
             if (File.Exists(playlistFile))
             {
                 Task.Run(() => { API.Playlists.DownloadFrom(playlistFile).Wait(); });
+            }
+        }
+
+        private void ShowOCIWindowComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ComboBox comboBox = sender as ComboBox;
+            if (comboBox.SelectedItem != null)
+            {
+                ComboBoxItem comboBoxItem = (ComboBoxItem)comboBox.SelectedItem;
+                UpdateOCIWindow(comboBoxItem.Tag.ToString());
+            }
+        }
+
+        public void UpdateOCIWindow(string state)
+        {
+            ComboBox comboBox = ShowOCIWindowComboBox;
+            if (comboBox != null)
+            {
+                if (state == "Yes") comboBox.SelectedIndex = 0;
+                else if (state == "Close") comboBox.SelectedIndex = 1;
+                else if (state == "No") comboBox.SelectedIndex = 2;
+                else return;
+            }
+            if (!string.IsNullOrEmpty(state))
+            {
+                OCIWindow = App.OCIWindow = Properties.Settings.Default.OCIWindow = state;
+                Properties.Settings.Default.Save();
             }
         }
     }

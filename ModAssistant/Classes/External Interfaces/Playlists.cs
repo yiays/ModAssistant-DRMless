@@ -2,8 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using static ModAssistant.Http;
 using System.Windows;
+using static ModAssistant.Http;
 
 namespace ModAssistant.API
 {
@@ -12,6 +12,12 @@ namespace ModAssistant.API
         private const string BSaberURLPrefix = "https://bsaber.com/PlaylistAPI/";
         private const string PlaylistsFolder = "Playlists";
         private static readonly string BeatSaberPath = Utils.BeatSaberPath;
+
+        public static void CreatePlaylistsFolder()
+        {
+            string playlistsPath = Path.Combine(BeatSaberPath, PlaylistsFolder);
+            Directory.CreateDirectory(playlistsPath);
+        }
 
         public static async Task DownloadAll(Uri uri)
         {
@@ -22,7 +28,6 @@ namespace ModAssistant.API
                     string filename = await Get(url);
                     await DownloadFrom(filename);
                     break;
-
             }
         }
 
@@ -32,7 +37,9 @@ namespace ModAssistant.API
             string absolutePath = Path.Combine(BeatSaberPath, PlaylistsFolder, filename);
             try
             {
+                CreatePlaylistsFolder();
                 await Utils.DownloadAsset(url.ToString(), PlaylistsFolder, filename);
+
                 return absolutePath;
             }
             catch
@@ -43,6 +50,8 @@ namespace ModAssistant.API
 
         public static async Task DownloadFrom(string file)
         {
+            CreatePlaylistsFolder();
+
             if (Path.Combine(BeatSaberPath, PlaylistsFolder) != Path.GetDirectoryName(file))
             {
                 string destination = Path.Combine(BeatSaberPath, PlaylistsFolder, Path.GetFileName(file));
@@ -91,10 +100,11 @@ namespace ModAssistant.API
             {
                 return $" {string.Concat(Enumerable.Repeat("▒", 10))} [{value}/{max}]";
             }
-            int interval = (int)Math.Floor((double)value / ( ((double)max - (double)min ) / (double)10));
+            int interval = (int)Math.Floor((double)value / (((double)max - (double)min) / (double)10));
             return $" {string.Concat(Enumerable.Repeat("▒", interval))}{string.Concat(Enumerable.Repeat("░", 10 - interval))} [{value}/{max}]";
         }
 
+#pragma warning disable IDE1006 // Naming Styles
         class Playlist
         {
             public string playlistTitle { get; set; }
@@ -112,3 +122,4 @@ namespace ModAssistant.API
         }
     }
 }
+#pragma warning restore IDE1006 // Naming Styles

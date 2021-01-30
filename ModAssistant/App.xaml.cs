@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -28,18 +26,12 @@ namespace ModAssistant
         public static string Arguments;
         public static bool Update = true;
         public static bool GUI = true;
-
+        public static string OCIWindow;
 
         private async void Application_Startup(object sender, StartupEventArgs e)
         {
             // Set SecurityProtocol to prevent crash with TLS
-            System.Net.ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-
-            // Load localisation languages
-            LoadLanguage(CultureInfo.CurrentCulture.Name);
-
-            // Uncomment the next line to debug localisation
-            // LoadLanguage("en-DEBUG");
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
 
             if (ModAssistant.Properties.Settings.Default.UpgradeRequired)
             {
@@ -49,16 +41,25 @@ namespace ModAssistant
             }
 
             Version = Version.Substring(0, Version.Length - 2);
-            BeatSaberInstallDirectory = Utils.GetInstallDir();
+            OCIWindow = ModAssistant.Properties.Settings.Default.OCIWindow;
+            if (string.IsNullOrEmpty(OCIWindow))
+            {
+                OCIWindow = "Yes";
+            }
+            Pages.Options options = Pages.Options.Instance;
+            options.InstallDirectory =
+                BeatSaberInstallDirectory = Utils.GetInstallDir();
 
-            while (string.IsNullOrEmpty(App.BeatSaberInstallDirectory))
+            Languages.LoadLanguages();
+
+            while (string.IsNullOrEmpty(BeatSaberInstallDirectory))
             {
                 string title = (string)Current.FindResource("App:InstallDirDialog:Title");
                 string body = (string)Current.FindResource("App:InstallDirDialog:OkCancel");
 
                 if (System.Windows.Forms.MessageBox.Show(body, title, System.Windows.Forms.MessageBoxButtons.OKCancel) == System.Windows.Forms.DialogResult.OK)
                 {
-                    App.BeatSaberInstallDirectory = Utils.GetManualDir();
+                    BeatSaberInstallDirectory = Utils.GetManualDir();
                 }
                 else
                 {
@@ -66,15 +67,22 @@ namespace ModAssistant
                 }
             }
 
-            BeatSaberInstallType = ModAssistant.Properties.Settings.Default.StoreType;
-            SaveModSelection = ModAssistant.Properties.Settings.Default.SaveSelected;
-            CheckInstalledMods = ModAssistant.Properties.Settings.Default.CheckInstalled;
-            SelectInstalledMods = ModAssistant.Properties.Settings.Default.SelectInstalled;
-            ReinstallInstalledMods = ModAssistant.Properties.Settings.Default.ReinstallInstalled;
-            CloseWindowOnFinish = ModAssistant.Properties.Settings.Default.CloseWindowOnFinish;
+            options.InstallType =
+                BeatSaberInstallType = ModAssistant.Properties.Settings.Default.StoreType;
+            options.SaveSelection =
+                SaveModSelection = ModAssistant.Properties.Settings.Default.SaveSelected;
+            options.CheckInstalledMods =
+                CheckInstalledMods = ModAssistant.Properties.Settings.Default.CheckInstalled;
+            options.SelectInstalledMods =
+                SelectInstalledMods = ModAssistant.Properties.Settings.Default.SelectInstalled;
+            options.ReinstallInstalledMods =
+                ReinstallInstalledMods = ModAssistant.Properties.Settings.Default.ReinstallInstalled;
+            options.CloseWindowOnFinish =
+                CloseWindowOnFinish = ModAssistant.Properties.Settings.Default.CloseWindowOnFinish;
 
             await ArgumentHandler(e.Args);
             await Init();
+            options.UpdateOCIWindow(OCIWindow);
         }
 
         private async Task Init()
@@ -85,7 +93,7 @@ namespace ModAssistant
                 {
                     await Task.Run(async () => await Updater.Run());
                 }
-                catch (UnauthorizedAccessException e)
+                catch (UnauthorizedAccessException)
                 {
                     Utils.StartAsAdmin(Arguments, true);
                 }
@@ -142,7 +150,12 @@ namespace ModAssistant
                         }
                         else
                         {
-                            LoadLanguage(args[1]);
+                            if (Languages.LoadLanguage(args[1]))
+                            {
+                                ModAssistant.Properties.Settings.Default.LanguageCode = args[1];
+                                ModAssistant.Properties.Settings.Default.Save();
+                                Languages.UpdateUI(args[1]);
+                            }
                         }
 
                         args = Shift(args, 2);
@@ -196,7 +209,7 @@ namespace ModAssistant
         {
             if (places >= array.Length) return Array.Empty<string>();
             string[] newArray = new string[array.Length - places];
-            for(int i = places; i < array.Length; i++)
+            for (int i = places; i < array.Length; i++)
             {
                 newArray[i - places] = array[i];
             }
@@ -208,34 +221,10 @@ namespace ModAssistant
         {
             string title = (string)Current.FindResource("App:Exception");
             string body = (string)Current.FindResource("App:UnhandledException");
-            MessageBox.Show($"{body}: {e.Exception}", "Exception", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show($"{body}: {e.Exception}", title, MessageBoxButton.OK, MessageBoxImage.Warning);
 
             e.Handled = true;
-            Application.Current.Shutdown();
-        }
-
-        private ResourceDictionary LanguagesDict
-        {
-            get
-            {
-                return Resources.MergedDictionaries[1];
-            }
-        }
-
-        private void LoadLanguage(string culture)
-        {
-            try
-            {
-                LanguagesDict.Source = new Uri($"Localisation/{culture}.xaml", UriKind.Relative);
-            }
-            catch (IOException)
-            {
-                if (culture.Contains("-"))
-                {
-                    LoadLanguage(culture.Split('-').First());
-                }
-                // Can't load language file
-            }
+            Current.Shutdown();
         }
     }
 }

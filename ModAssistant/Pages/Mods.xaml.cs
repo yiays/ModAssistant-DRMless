@@ -9,10 +9,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Forms;
-using System.Windows.Navigation;
-using static ModAssistant.Http;
-using ModAssistant.Libs;
 using System.Windows.Media.Animation;
+using System.Windows.Navigation;
+using ModAssistant.Libs;
+using static ModAssistant.Http;
 using TextBox = System.Windows.Controls.TextBox;
 
 namespace ModAssistant.Pages
@@ -51,12 +51,12 @@ namespace ModAssistant.Pages
 
         public void RefreshColumns()
         {
-            if (MainWindow.Instance.Main.Content != Mods.Instance) return;
+            if (MainWindow.Instance.Main.Content != Instance) return;
             double viewWidth = ModsListView.ActualWidth;
             double totalSize = 0;
             GridViewColumn description = null;
-            GridView grid = ModsListView.View as GridView;
-            if (grid != null)
+
+            if (ModsListView.View is GridView grid)
             {
                 foreach (var column in grid.Columns)
                 {
@@ -135,10 +135,11 @@ namespace ModAssistant.Pages
                 this.DataContext = this;
 
                 RefreshModsList();
-                ModsListView.Visibility = Visibility.Visible;
-                MainWindow.Instance.MainText = $"{FindResource("Mods:FinishedLoadingMods")}.";
+                ModsListView.Visibility = ModList.Count == 0 ? Visibility.Hidden : Visibility.Visible;
+                NoModsGrid.Visibility = ModList.Count == 0 ? Visibility.Visible : Visibility.Hidden;
 
-                MainWindow.Instance.InstallButton.IsEnabled = true;
+                MainWindow.Instance.MainText = $"{FindResource("Mods:FinishedLoadingMods")}.";
+                MainWindow.Instance.InstallButton.IsEnabled = ModList.Count != 0;
                 MainWindow.Instance.GameVersionsBox.IsEnabled = true;
             }
             finally
@@ -150,12 +151,12 @@ namespace ModAssistant.Pages
         public async Task CheckInstalledMods()
         {
             await GetAllMods();
-            List<string> empty = new List<string>();
+
             GetBSIPAVersion();
-            CheckInstallDir("IPA/Pending/Plugins", empty);
-            CheckInstallDir("IPA/Pending/Libs", empty);
-            CheckInstallDir("Plugins", empty);
-            CheckInstallDir("Libs", empty);
+            CheckInstallDir("IPA/Pending/Plugins");
+            CheckInstallDir("IPA/Pending/Libs");
+            CheckInstallDir("Plugins");
+            CheckInstallDir("Libs");
         }
 
         public async Task GetAllMods()
@@ -165,7 +166,7 @@ namespace ModAssistant.Pages
             AllModsList = JsonSerializer.Deserialize<Mod[]>(body);
         }
 
-        private void CheckInstallDir(string directory, List<string> blacklist)
+        private void CheckInstallDir(string directory)
         {
             if (!Directory.Exists(Path.Combine(App.BeatSaberInstallDirectory, directory)))
             {
@@ -341,7 +342,7 @@ namespace ModAssistant.Pages
                         );
                     }
 
-                    Pages.Options.Instance.YeetBSIPA.IsEnabled = true;
+                    Options.Instance.YeetBSIPA.IsEnabled = true;
                 }
                 else if (mod.ListItem.IsSelected)
                 {
@@ -553,7 +554,8 @@ namespace ModAssistant.Pages
                     if (SemVersion.TryParse(value, out SemVersion tempInstalledVersion))
                     {
                         _installedVersion = tempInstalledVersion;
-                    } else
+                    }
+                    else
                     {
                         _installedVersion = null;
                     }
@@ -621,7 +623,7 @@ namespace ModAssistant.Pages
 
         private void ModsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if ((Mods.ModListItem)Mods.Instance.ModsListView.SelectedItem == null)
+            if ((Mods.ModListItem)Instance.ModsListView.SelectedItem == null)
             {
                 MainWindow.Instance.InfoButton.IsEnabled = false;
             }
@@ -646,7 +648,7 @@ namespace ModAssistant.Pages
                 if (File.Exists(Path.Combine(App.BeatSaberInstallDirectory, file)))
                     File.Delete(Path.Combine(App.BeatSaberInstallDirectory, file));
             }
-            Pages.Options.Instance.YeetBSIPA.IsEnabled = false;
+            Options.Instance.YeetBSIPA.IsEnabled = false;
         }
 
         private void Uninstall_Click(object sender, RoutedEventArgs e)
@@ -693,7 +695,22 @@ namespace ModAssistant.Pages
                 }
             }
             if (mod.name.ToLower() == "bsipa")
-                UninstallBSIPA(links);
+            {
+                var hasIPAExe = File.Exists(Path.Combine(App.BeatSaberInstallDirectory, "IPA.exe"));
+                var hasIPADir = Directory.Exists(Path.Combine(App.BeatSaberInstallDirectory, "IPA"));
+
+                if (hasIPADir && hasIPAExe)
+                {
+                    UninstallBSIPA(links);
+                }
+                else
+                {
+                    var title = (string)FindResource("Mods:UninstallBSIPANotFound:Title");
+                    var body = (string)FindResource("Mods:UninstallBSIPANotFound:Body");
+
+                    System.Windows.Forms.MessageBox.Show(body, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
             foreach (Mod.FileHashes files in links.hashMd5)
             {
                 if (File.Exists(Path.Combine(App.BeatSaberInstallDirectory, files.file)))
@@ -716,8 +733,13 @@ namespace ModAssistant.Pages
 
         private void CopyText(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            System.Windows.Clipboard.SetText(((TextBlock)sender).Text);
-            Utils.SendNotify("Copied text to clipboard");
+            if (!(sender is TextBlock textBlock)) return;
+            var text = textBlock.Text;
+
+            // Ensure there's text to be copied
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            Utils.SetClipboard(text);
         }
 
         private void SearchButton_Click(object sender, RoutedEventArgs e)
@@ -764,14 +786,14 @@ namespace ModAssistant.Pages
         {
             target.Height = oldHeight;
             DoubleAnimation animation = new DoubleAnimation(newHeight, duration);
-            target.BeginAnimation(TextBlock.HeightProperty, animation);
+            target.BeginAnimation(HeightProperty, animation);
         }
 
         private void Animate(TextBox target, double oldHeight, double newHeight, TimeSpan duration)
         {
             target.Height = oldHeight;
             DoubleAnimation animation = new DoubleAnimation(newHeight, duration);
-            target.BeginAnimation(TextBox.HeightProperty, animation);
+            target.BeginAnimation(HeightProperty, animation);
         }
     }
 }

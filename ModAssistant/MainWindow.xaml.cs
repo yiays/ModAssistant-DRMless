@@ -30,7 +30,7 @@ namespace ModAssistant
             }
             set
             {
-                Dispatcher.Invoke(new Action(() => { MainWindow.Instance.MainTextBlock.Text = value; }));
+                Dispatcher.Invoke(new Action(() => { Instance.MainTextBlock.Text = value; }));
             }
         }
 
@@ -84,6 +84,21 @@ namespace ModAssistant
             }
         }
 
+        /* Force the app to shutdown when The main window is closed.
+         *
+         * Explaination:
+         * OneClickStatus is initialized as a static object,
+         * so the window will exist, even if it is unused.
+         * This would cause Mod Assistant to not shutdown,
+         * because technically a window was still open.
+         */
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+
+            Application.Current.Shutdown();
+        }
+
         private async void LoadVersionsAsync()
         {
             try
@@ -94,11 +109,11 @@ namespace ModAssistant
 
                 resp = await HttpClient.GetAsync(Utils.Constants.BeatModsAlias);
                 body = await resp.Content.ReadAsStringAsync();
-                object jsonObject = JsonSerializer.DeserializeObject(body);
+                Dictionary<string, string[]> aliases = JsonSerializer.Deserialize<Dictionary<string, string[]>>(body);
 
                 Dispatcher.Invoke(() =>
                 {
-                    GameVersion = GetGameVersion(versions, jsonObject);
+                    GameVersion = GetGameVersion(versions, aliases);
 
                     GameVersionsBox.ItemsSource = versions;
                     GameVersionsBox.SelectedValue = GameVersion;
@@ -113,7 +128,7 @@ namespace ModAssistant
 
                     if (!string.IsNullOrEmpty(GameVersion) && Properties.Settings.Default.Agreed)
                     {
-                        MainWindow.Instance.ModsButton.IsEnabled = true;
+                        Instance.ModsButton.IsEnabled = true;
                     }
                 });
 
@@ -131,7 +146,7 @@ namespace ModAssistant
             }
         }
 
-        private string GetGameVersion(List<string> versions, object aliases)
+        private string GetGameVersion(List<string> versions, Dictionary<string, string[]> aliases)
         {
             string version = Utils.GetVersion();
             if (!string.IsNullOrEmpty(version) && versions.Contains(version))
@@ -145,7 +160,7 @@ namespace ModAssistant
                 return aliasOf;
             }
 
-            string versionsString = String.Join(",", versions.ToArray());
+            string versionsString = string.Join(",", versions.ToArray());
             if (Properties.Settings.Default.AllGameVersions != versionsString)
             {
                 Properties.Settings.Default.AllGameVersions = versionsString;
@@ -164,21 +179,21 @@ namespace ModAssistant
             return versions[0];
         }
 
-        private string CheckAliases(List<string> versions, object aliases, string detectedVersion)
+        private string CheckAliases(List<string> versions, Dictionary<string, string[]> aliasesDict, string detectedVersion)
         {
-            Dictionary<string, object> Objects = (Dictionary<string, object>)aliases;
+            Dictionary<string, List<string>> aliases = aliasesDict.ToDictionary(x => x.Key, x => x.Value.ToList());
             foreach (string version in versions)
             {
-                object[] aliasArray = (object[])Objects[version];
-                foreach (object alias in aliasArray)
+                if (aliases.TryGetValue(version, out var x))
                 {
-                    if (alias.ToString() == detectedVersion)
+                    if (x.Contains(detectedVersion))
                     {
                         GameVersionOverride = detectedVersion;
                         return version;
                     }
                 }
             }
+
             return string.Empty;
         }
 
@@ -289,10 +304,17 @@ namespace ModAssistant
 
         private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            About.Instance.PatUp.IsOpen = false;
-            About.Instance.PatButton.IsEnabled = true;
-            About.Instance.HugUp.IsOpen = false;
-            About.Instance.HugButton.IsEnabled = true;
+            if (About.Instance.PatUp.IsOpen)
+            {
+                About.Instance.PatUp.IsOpen = false;
+                About.Instance.PatButton.IsEnabled = true;
+            }
+
+            if (About.Instance.HugUp.IsOpen)
+            {
+                About.Instance.HugUp.IsOpen = false;
+                About.Instance.HugButton.IsEnabled = true;
+            }
         }
 
         private void Window_SizeChanged(object sender, SizeChangedEventArgs e)

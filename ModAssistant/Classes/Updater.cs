@@ -29,7 +29,7 @@ namespace ModAssistant
             var body = await resp.Content.ReadAsStringAsync();
             LatestUpdate = JsonSerializer.Deserialize<Update>(body);
 
-            LatestVersion = new Version(LatestUpdate.tag_name.Substring(1));
+            LatestVersion = new Version(LatestUpdate.tag_name.Substring(1, LatestUpdate.tag_name.IndexOf('-') - 1));
             CurrentVersion = new Version(App.Version);
 
             return (LatestVersion > CurrentVersion);

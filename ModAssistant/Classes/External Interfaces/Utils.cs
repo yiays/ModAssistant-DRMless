@@ -1,12 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using System.Windows;
-using static ModAssistant.Http;
 
 namespace ModAssistant.API
 {
@@ -16,13 +13,19 @@ namespace ModAssistant.API
 
         public static void SetMessage(string message)
         {
-            if (App.window == null)
+            if (App.OCIWindow != "No")
             {
-                OneClickStatus.Instance.MainText = message;
-            }
-            else
-            {
-                MainWindow.Instance.MainText = message;
+                if (App.window == null)
+                {
+                    if (App.OCIWindow == "No") OneClickStatus.Instance = null;
+                    if (OneClickStatus.Instance == null) return;
+
+                    OneClickStatus.Instance.MainText = message;
+                }
+                else
+                {
+                    MainWindow.Instance.MainText = message;
+                }
             }
         }
 

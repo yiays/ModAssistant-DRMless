@@ -1,8 +1,8 @@
-using Microsoft.Win32;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using Microsoft.Win32;
 
 namespace ModAssistant
 {
@@ -28,6 +28,15 @@ namespace ModAssistant
                     await Playlist(uri);
                     break;
             }
+            if (App.OCIWindow != "No")
+            {
+                Status.StopRotation();
+                API.Utils.SetMessage((string)Application.Current.FindResource("OneClick:Done"));
+            }
+            if (App.OCIWindow == "Close")
+            {
+                Application.Current.Shutdown();
+            }
         }
 
         private static async Task BeatSaver(Uri uri)
@@ -38,18 +47,18 @@ namespace ModAssistant
 
         private static async Task ModelSaber(Uri uri)
         {
-            Status.Show();
+            if (App.OCIWindow != "No") Status.Show();
             API.Utils.SetMessage($"{string.Format((string)Application.Current.FindResource("OneClick:Installing"), System.Web.HttpUtility.UrlDecode(uri.Segments.Last()))}");
             await API.ModelSaber.GetModel(uri);
         }
 
         private static async Task Playlist(Uri uri)
         {
-            Status.Show();
+            if (App.OCIWindow != "No") Status.Show();
             await API.Playlists.DownloadAll(uri);
         }
 
-        public static void Register(string Protocol, bool Background = false)
+        public static void Register(string Protocol, bool Background = false, string Description = null)
         {
             if (IsRegistered(Protocol) == true)
                 return;
@@ -66,6 +75,10 @@ namespace ModAssistant
 
                     if (ProtocolKey.GetValue("OneClick-Provider", "").ToString() != "ModAssistant")
                     {
+                        if (Description != null)
+                        {
+                            ProtocolKey.SetValue("", Description, RegistryValueKind.String);
+                        }
                         ProtocolKey.SetValue("URL Protocol", "", RegistryValueKind.String);
                         ProtocolKey.SetValue("OneClick-Provider", "ModAssistant", RegistryValueKind.String);
                         CommandKey.SetValue("", $"\"{Utils.ExePath}\" \"--install\" \"%1\"");
@@ -75,7 +88,7 @@ namespace ModAssistant
                 }
                 else
                 {
-                    Utils.StartAsAdmin($"\"--register\" \"{Protocol}\"");
+                    Utils.StartAsAdmin($"\"--register\" \"{Protocol}\" \"{Description}\"");
                 }
             }
             catch (Exception e)

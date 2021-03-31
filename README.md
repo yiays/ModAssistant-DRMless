@@ -1,7 +1,7 @@
-[![ModAssistant](https://cdn.assistant.moe/images/ModAssistant/Icons/Banner.svg)](https://github.com/Assistant/ModAssistant/releases/latest)
+[![ModAssistant](https://cdn.assistant.moe/images/ModAssistant/Icons/Banner.svg?v=5)](https://github.com/yiays/ModAssistant-DRMless/releases/latest)
 [![Download here!](https://cdn.assistant.moe/images/ModAssistant/Icons/Download.svg)](https://github.com/yiays/ModAssistant-DRMless/releases/latest)
 
-ModAssistant is a PC mod installer for Beat Saber. It uses mods from [BeatMods](https://beatmods.com/).
+Mod Assistant is a PC mod installer for Beat Saber. It uses mods from [BeatMods](https://beatmods.com/).
 
 Unfortunately, there's some anti-piracy code in the original mod manager. This fork removes that while maintaining the auto-updating functionality!
 
@@ -18,7 +18,7 @@ Unfortunately, there's some anti-piracy code in the original mod manager. This f
 
 ## Features
 
-ModAssistant boasts a rich feature set, some of which include:
+Mod Assistant boasts a rich feature set, some of which include:
 * Dependency resolution
 * Installed mod detection
 * Mod uninstallation
@@ -87,7 +87,7 @@ Download the newest installer from the release section and run it. This applicat
 </details>
 
 ### Custom Themes
-Custom themes are located in a folder called `Themes` in the same folder as `ModAssistant.exe`. ModAssistant can load themes from one of three sources.
+Custom themes are located in a folder called `Themes` in the same folder as `ModAssistant.exe`. Mod Assistant can load themes from one of three sources.
 
 ### Built In
 These come with the program and you can't change them, however you can overwrite them by creating one of the other two theme types with the same name.
